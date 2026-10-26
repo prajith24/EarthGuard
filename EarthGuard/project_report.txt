@@ -1,0 +1,437 @@
+EARTHGUARD - POLLUTION PATTERN DETECTOR
+PROJECT REPORT CONTENT (copy into Word; fonts: Courier New for flowcharts)
+===========================================================================
+
+1. TITLE PAGE
+-------------
+Project Title : EarthGuard - Pollution Pattern Detector
+Submitted by  : [Your name]            Roll No. : [Your roll number]
+Programme     : B.Tech Computer Science Engineering
+Subject       : [Subject / course code]
+Guide         : [Guide / faculty name]
+University    : [University name]       Session : [Year]
+Language/Tools: C (C11), GCC, Visual Studio Code, Windows
+
+2. ABSTRACT
+-----------
+EarthGuard is a menu-driven console application written in C. A user enters
+air quality index (AQI), water pH and noise level (dB) readings for named
+locations and dates. The program validates every entry, stores it in a text
+file, classifies the values using documented project rules, compares two
+locations, flags unusual changes between older and newer readings, and
+creates a plain-text report. The program does not measure pollution; it
+analyses manually entered data. All thresholds are project assumptions, not
+official standards.
+
+3. INTRODUCTION
+---------------
+Environmental readings are often kept in scattered notes. A small program
+that stores them in one format, checks them for mistakes and highlights
+changes helps students learn how data can be organised and analysed. The
+project also practises core C topics: structures, dynamic memory, file
+handling, string handling, sorting, searching and input validation.
+
+4. PROBLEM STATEMENT
+--------------------
+Manually recorded pollution readings are easy to mistype, hard to compare
+across locations, and hard to track over time. There is a need for a simple,
+offline tool that validates entries, keeps a permanent record, and highlights
+readings or changes that deserve a second look.
+
+5. OBJECTIVES
+-------------
+- Accept and validate AQI, pH and noise readings with location and date.
+- Store records permanently in a plain text file without a database.
+- Classify readings using clearly documented project rules.
+- Compare locations and detect changes over time for the same location.
+- Search, sort and summarise records.
+- Generate a text report with limitations and a disclaimer.
+- Handle file and input errors safely, with no crashes.
+
+6. SCOPE OF THE PROJECT
+-----------------------
+In scope: manual data entry, single-user console use, text-file storage,
+up to 5000 records, three indicators (AQI, pH, noise).
+Out of scope: live sensors, internet data, official compliance checking,
+medical or legal advice, graphs, multi-user access, a database.
+
+7. LIMITATIONS OF EXISTING SYSTEMS
+----------------------------------
+Paper notes and loose spreadsheets: no input validation, inconsistent date
+formats, no automatic flagging, no standard report. Professional monitoring
+systems: need instruments, licences and training, and are too complex for a
+student-level, offline exercise.
+
+8. PROPOSED SYSTEM
+------------------
+A single C program with 11 menu options. Records are held in a dynamic array
+and saved in pollution_data.txt. Rules are constants at the top of the source
+file, so they can be changed and recompiled.
+
+9. HARDWARE AND SOFTWARE REQUIREMENTS
+-------------------------------------
+Hardware : any PC able to run Windows 10/11 (no special hardware).
+Software : Windows, GCC (MinGW-w64 / MSYS2), Visual Studio Code with a
+           terminal. No external libraries beyond the C standard library
+           (math library linked with -lm).
+
+10. FUNCTIONAL REQUIREMENTS
+---------------------------
+FR1 Add reading with generated unique ID, validated location/date/values.
+FR2 View all saved readings in an aligned table with classifications.
+FR3 Analyze a saved reading or typed-in values.
+FR4 Compare two locations (values, differences, higher AQI and noise, pH check).
+FR5 Detect unusual changes for each location in date order.
+FR6 Search by ID, location text, or date.
+FR7 Sort by location, date, AQI, pH or noise, ascending or descending.
+FR8 Generate pollution_report.txt.
+FR9 Show a summary dashboard.
+FR10 Show project information.
+FR11 Exit safely, freeing memory.
+
+11. NON-FUNCTIONAL REQUIREMENTS
+-------------------------------
+Reliability: invalid input never changes saved data.
+Safety: bounded input buffers, no gets(), no unbounded scanf("%s").
+Usability: clear messages, retry after errors, readable tables.
+Portability: standard C11; Windows-specific behaviour limited to file
+replacement (explained in section 14).
+Maintainability: thresholds are named constants; one function per task.
+Privacy: no personal data is stored.
+
+12. SYSTEM ARCHITECTURE
+-----------------------
+  +-----------+     +-------------------+     +--------------------+
+  |  Keyboard | --> |  Input layer      | --> |  Menu / main loop  |
+  +-----------+     |  readLine,        |     |  (switch 1-11)     |
+                    |  promptInt,       |     +---------+----------+
+                    |  validateDate ... |               |
+                    +-------------------+               v
+  +---------------------+     +--------------------------------------+
+  | pollution_data.txt  | <-> | Data layer: loadRecords, dbAppend,   |
+  | pollution_report.txt|     | appendRecordToFile, saveRecords      |
+  +---------------------+     +------------------+-------------------+
+                                                  |
+                                                  v
+                              +--------------------------------------+
+                              | Analysis layer: classifyAQI/PH/Noise,|
+                              | flagMask, analyzeChanges, computeStats|
+                              +--------------------------------------+
+
+13. DATA STRUCTURE DESIGN
+-------------------------
+Record   : id (int), location (char[50]), date (char[11]), aqi (int),
+           ph (double), noise (double).
+Database : items (Record *), count, capacity - a dynamic array that grows
+           by doubling, up to 5000.
+LoadInfo : file missing flag, malformed-line count and numbers, truncation flag.
+Stats    : totals, averages, maxima, pH minimum/maximum, flag counts.
+Flags    : bit mask - 1 = AQI rule, 2 = pH rule, 4 = noise rule.
+
+14. FILE STORAGE DESIGN
+-----------------------
+File: pollution_data.txt. One record per line:
+   ID|Location|YYYY-MM-DD|AQI|pH|NoiseDB
+The '|' separator is used instead of spaces so location names can contain
+spaces. '|' is not allowed in a location. Each line is read with fgets()
+into a fixed buffer, split by hand, and every field is validated; a line
+that fails any check is reported as malformed and skipped, never deleted.
+Adding a record appends one line. Rewriting happens only after sorting if
+the user agrees: write pollution_data.tmp, then rename the old file to
+pollution_data.bak, rename the temp file to pollution_data.txt, delete the
+backup; if a step fails the backup is restored. (On Windows rename() cannot
+replace an existing file, which is why this backup step is used.)
+
+15. ALGORITHM
+-------------
+1. Start. Load records from the file; report missing file / bad lines.
+2. Repeat:
+   a. Show menu, read a line, convert to a number; if invalid show error.
+   b. Run the chosen operation (add, view, analyze, compare, detect,
+      search, sort, report, summary, info).
+   c. Wait for Enter and return to step 2a.
+3. When 11 is chosen, free memory, print closing message, stop.
+Change detection: for each location, collect its records, sort by date (then
+ID), and compare each neighbouring pair. Flag the pair if |dAQI| >= 50, or
+|dNoise| >= 10 dB, or |dpH| >= 1.0, or a rule is newly crossed. Percentage
+change is computed only when the old AQI is not zero.
+
+16. MAIN SYSTEM FLOWCHART
+-------------------------
+                 +-------------+
+                 |    START    |
+                 +------+------+
+                        |
+                        v
+        +-------------------------------+
+        | Initialize (empty database)   |
+        +---------------+---------------+
+                        |
+                        v
+        +-------------------------------+
+        | Load records from data file   |
+        +---------------+---------------+
+                        |
+                        v
+          <  File readable (or missing)? >
+             |YES                  |NO
+             |                     v
+             |        +-----------------------------+
+             |        | Show read error; continue   |
+             |        | with data NOT modified      |
+             |        +--------------+--------------+
+             |                       |
+             +-----------+-----------+
+                         |
+                         v
+        +-------------------------------+
+   +--->| Display menu                  |
+   |    +---------------+---------------+
+   |                    |
+   |                    v
+   |    +-------------------------------+
+   |    | Select operation              |
+   |    +---------------+---------------+
+   |                    |
+   |                    v
+   |          < Choice is 11 (Exit)? >
+   |             |NO               |YES
+   |             v                 |
+   |    +----------------------+   |
+   |    | Perform operation    |   |
+   |    +----------+-----------+   |
+   |               |               |
+   |               v               |
+   |    < Data changed? >          |
+   |      |YES        |NO          |
+   |      v           |            |
+   |  +-----------+   |            |
+   |  | Save to   |   |            |
+   |  | file      |   |            |
+   |  +-----+-----+   |            |
+   |        |         |            |
+   |        +----+----+            |
+   |             v                 |
+   |    Press Enter, return to menu|
+   +-------------+                 |
+                                   v
+                      +------------------------+
+                      | Free memory, closing   |
+                      | message                |
+                      +-----------+------------+
+                                  |
+                                  v
+                            +-----------+
+                            |    END    |
+                            +-----------+
+(Note: in the program, "Add" appends to the file immediately and "Sort"
+saves only if the user answers y.)
+
+17. POLLUTION-ANALYSIS FLOWCHART
+--------------------------------
+                 +-------------+
+                 |    START    |
+                 +------+------+
+                        |
+                        v
+        +-------------------------------+
+        | Choose: saved record by ID or |
+        | enter values now              |
+        +---------------+---------------+
+                        |
+                        v
+        +-------------------------------+
+   +--->| Enter AQI, pH, noise          |
+   |    +---------------+---------------+
+   |                    |
+   |                    v
+   |         < All values valid? >
+   |          |NO               |YES
+   |          v                 |
+   |  +----------------+        |
+   |  | Show error     |        |
+   |  +-------+--------+        |
+   +----------+                 |
+                                v
+        +-------------------------------+
+        | Classify AQI, pH and noise    |
+        +---------------+---------------+
+                        |
+                        v
+        +-------------------------------+
+        | Detect threshold crossings    |
+        | (flag mask)                   |
+        +---------------+---------------+
+                        |
+                        v
+        +-------------------------------+
+        | Display values, classes,      |
+        | explanations, recommendation  |
+        +---------------+---------------+
+                        |
+                        v
+          < Typed-in values and user    >
+          < answers y to save?          >
+             |YES                 |NO
+             v                    |
+   +--------------------+         |
+   | Enter location,    |         |
+   | date; save record  |         |
+   +---------+----------+         |
+             |                    |
+             +----------+---------+
+                        v
+                  +-----------+
+                  |    END    |
+                  +-----------+
+(A report of all records is produced separately by menu option 8.)
+
+18. MENU-NAVIGATION FLOWCHART
+-----------------------------
+        +------------------------+
+   +--->| Show menu (1 to 11)    |
+   |    +-----------+------------+
+   |                |
+   |                v
+   |    +------------------------+
+   |    | Read option (a line)   |
+   |    +-----------+------------+
+   |                |
+   |                v
+   |       < Is it a number 1-11? >
+   |         |NO            |YES
+   |         v              |
+   |  +--------------+      |
+   |  | Show "Invalid|      |
+   |  | option"      |      |
+   +--+--------------+      |
+   |                        v
+   |            < Option = 11? >
+   |              |NO        |YES
+   |              v          v
+   |   +----------------+  +--------------------+
+   |   | Execute chosen |  | Free memory, say   |
+   |   | operation      |  | goodbye, EXIT      |
+   |   +-------+--------+  +--------------------+
+   |           |
+   |           v
+   |   Press Enter to continue
+   +-----------+
+
+19. STEP-BY-STEP WORKING PROCEDURE
+----------------------------------
+1. Compile the program and run earthguard.exe.
+2. The program loads pollution_data.txt (or says no file exists yet).
+3. Choose 1 to add readings: location, date, AQI, pH, noise. Each value is
+   checked; errors explain the problem and ask again.
+4. Choose 2 to see all records. Choose 3 to analyze one.
+5. Choose 4 to compare two locations, 5 to look for unusual changes.
+6. Choose 6 to search, 7 to sort (answer n to keep the file unchanged).
+7. Choose 8 to create pollution_report.txt; 9 for the dashboard.
+8. Choose 11 to exit. All saved records stay in the data file.
+
+20. IMPORTANT C FUNCTIONS
+-------------------------
+readLine(buf,size)        Reads one line with fgets, removes newline/spaces,
+                          discards extra characters if the line is too long.
+promptLine/Int/Double     Repeat until valid; handle empty, too long, EOF.
+validateNumericInput      strtod with end-pointer check; rejects text, NaN,
+                          infinity and out-of-range numbers.
+isLeapYear/validateDate   Divisible by 4 and not by 100, or by 400; checks
+                          month lengths.
+classifyAQI/PH/Noise      Return the category text for a value.
+flagMask                  Bit mask of the screening rules a record crosses.
+loadRecords/parseRecordLine Read and fully validate the data file.
+appendRecordToFile        Appends one line; checks fopen, fprintf, fclose.
+saveRecords               Temp file + backup + rename (safe rewrite).
+analyzeChanges            Date-ordered comparison per location; writes to any
+                          FILE* so the screen and the report share one code path.
+computeStats              Totals, averages, maxima, flag counts; safe when empty.
+compareRecords            qsort comparator for the five sort keys.
+freeResources             Frees the dynamic array.
+
+21. SAMPLE INPUT AND OUTPUT (SAMPLE data - invented values, produced by a
+    real run of the program on Linux)
+-----------------------------------------------------------------------
+Input (menu 1), then menu 2:
+   Location: Model Town Ludhiana   Date: 2026-02-15   AQI: 260   pH: 5.9   Noise: 82
+
+ID    Location                 Date         AQI     pH      dB  AQI Category pH Screen   Noise      Flag
+------------------------------------------------------------------------------------------------------
+1     Model Town Ludhiana      2026-01-15   182   7.40    68.5  Moderate     In range    Moderate   -
+2     Sarai Road               2024-02-29   150   7.00    55.0  Moderate     In range    Low        -
+3     Model Town Ludhiana      2026-02-15   260   5.90    82.0  Poor         Below range High       YES
+4     Sarai Road               2024-06-01    90   7.20    60.0  Satisfactory In range    Moderate   -
+
+Menu 5 output:
+  Location: Model Town Ludhiana (2 readings)
+    2026-01-15 (record 1) -> 2026-02-15 (record 3)
+      AQI increase: old 182, new 260, difference +78 (+42.9%)
+      Noise change: old 68.5 dB, new 82.0 dB, difference +13.5 dB
+      pH change: old 7.40, new 5.90, difference -1.50
+      Newly crossed rule(s): AQI above 200, pH outside 6.5-8.5, noise above 70 dB
+  Location: Sarai Road (2 readings)
+    2024-02-29 (record 2) -> 2024-06-01 (record 4)
+      AQI decrease: old 150, new 90, difference -60 (-40.0%)
+  These are review flags from project rules, NOT confirmed pollution events.
+(See sample_pollution_report.txt for a complete generated report.)
+
+22. TESTING PLAN AND RESULTS
+----------------------------
+See test_cases.txt. 22 planned tests plus extras were executed on Linux with
+GCC 13.3 using scripted input; all passed. Windows execution has not been
+verified by the code author - run the tests on your own Windows machine and
+record your results before submission. Do not copy results you did not see.
+
+23. LIMITATIONS
+---------------
+- Does not measure pollution; relies on correct manual entry.
+- AQI scale, pH range and noise limits are project assumptions, not official.
+- pH alone does not decide water safety; noise impact depends on duration.
+- Fixed capacity of 5000 records; one user; no graphs.
+- Location names are matched by text, so spelling differences make separate locations.
+- Change flags are rules for review, not proof of a pollution event.
+
+24. FUTURE ENHANCEMENTS
+-----------------------
+Import from CSV; more indicators (PM2.5, dissolved oxygen); user-editable
+thresholds file; edit/delete records; charts; support for official standards
+once consulted and cited.
+
+25. CONCLUSION
+--------------
+EarthGuard shows how a complete, safe and readable console application can be
+built in standard C using structures, dynamic memory, text files and careful
+validation. It organises manually entered data and highlights readings that
+deserve verification, while being clear about its limits.
+
+26. REFERENCES
+--------------
+Only sources you have actually read should be listed. This project did not
+consult or copy any official AQI, water or noise standard; its thresholds are
+documented project assumptions. If you consult an official source (for
+example the standard issued by your national pollution control authority),
+add it here with title, publisher, year and URL, and adjust the constants in
+earthguard.c to match.
+ 1. ISO/IEC 9899:2011, Programming languages - C (the C11 language standard).
+ 2. GCC documentation, gcc.gnu.org (compiler options used).
+(Include only items 1-2 if you consulted them yourself.)
+
+===========================================================================
+PHASE 11 - SCREENSHOTS AND SUBMISSION CHECKLIST
+===========================================================================
+Screenshots to take (Windows: Win + Shift + S, then paste into Word):
+  1. VS Code with earthguard.c open.
+  2. Terminal showing the gcc command with no errors.
+  3. Main menu. 4. Adding a valid record (with confirmation).
+  5. An invalid input being rejected (bad date, pH 15).
+  6. View all records table. 7. Analysis of a flagged record.
+  8. Compare locations. 9. Unusual changes. 10. Search and sort.
+  11. Summary dashboard. 12. pollution_report.txt opened in Notepad.
+  13. pollution_data.txt opened in Notepad.
+Submission pack: report (this content in Word, with title page), earthguard.c,
+README.txt, test_cases.txt (with YOUR Windows results filled in), sample files,
+screenshots, and optionally earthguard.exe. Keep your own name, roll number and
+guide details on the title page. Be ready to explain: the record format, why
+'|' is used, how dates and leap years are checked, how changes are detected,
+why thresholds are only assumptions, and how a file is saved safely.

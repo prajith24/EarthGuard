@@ -1,0 +1,76 @@
+EARTHGUARD v1.0 - TEST CASES AND RESULTS
+=========================================
+
+HOW THESE WERE RUN (honest statement)
+  - Compiled with:  gcc -std=c11 -Wall -Wextra -pedantic -o earthguard earthguard.c -lm
+    GCC 13.3.0 on Ubuntu Linux. Result: no errors, no warnings.
+  - The tests below were executed on LINUX by feeding scripted keyboard input
+    to the program and reading its output and the files it wrote.
+  - The program was also built with AddressSanitizer + UBSan and the full test
+    session was replayed: no memory errors, no leaks, no undefined behaviour reported.
+  - NOT done: running on Windows, and manual typing in VS Code. The code uses
+    only standard C, so the same behaviour is expected on Windows, but this has
+    not been verified. Run the tests yourself on Windows and fill in the last
+    column (Your result) before submission.
+  - "Observed" means what the program actually printed during the run.
+
+SAMPLE DATA USED (invented, not real measurements)
+  1|Model Town Ludhiana|2026-01-15|182|7.40|68.5   (entered in T2)
+  2|Sarai Road|2024-02-29|150|7.00|55.0           (entered in T10)
+  3|Model Town Ludhiana|2026-02-15|260|5.90|82.0
+  4|Sarai Road|2024-06-01|90|7.20|60.0
+
+ID   Input / action                              Expected result                                   Observed on Linux                                      Status  Your result (Windows)
+---- ------------------------------------------- ------------------------------------------------- ------------------------------------------------------ ------- ---------------------
+T01  Start with no pollution_data.txt; option 2   Message that no data file exists / no records     "No data file yet..." then "No records found."        PASS    ____
+T02  Add: Model Town Ludhiana, 2026-01-15,        Record saved with ID 1, confirmation shown        "Success: record 1 saved to pollution_data.txt."      PASS    ____
+     AQI 182, pH 7.4, noise 68.5
+T03  Add three more records                       IDs 2, 3, 4 assigned in order                     Records 2, 3, 4 saved; file has 4 lines               PASS    ____
+T04  Location "Model Town Ludhiana" (spaces)      Stored and shown with full name                   Table and file show the full name                      PASS    ____
+T05  AQI = abc, then 600, then 150                "whole number" error; range error; accepted       Both errors shown, 150 accepted                        PASS    ____
+T06  pH = -1                                      Rejected, asks again                              "value must be between 0.0 and 14.0"                   PASS    ____
+T07  pH = 15                                      Rejected, asks again                              Same range error                                       PASS    ____
+T08  Noise = -5, then abc                         "cannot be negative"; "type a number" error       Both messages shown                                    PASS    ____
+T09  Date 2026-02-30 and 2025-02-29               Both rejected (invalid calendar dates)            "Error: invalid date..." for each                      PASS    ____
+T10  Date 2024-02-29                              Accepted (2024 is a leap year)                    Record 2 saved with this date                          PASS    ____
+T11  Search by location text "model town"         Records 1 and 3 listed (case-insensitive)         2 records found                                        PASS    ____
+T12  Search location "Atlantis"                   "No matching records" message                     No matching records found for "Atlantis".              PASS    ____
+T13  Compare Model Town (latest) vs Sarai Road    Table, differences, higher AQI/noise, pH note     AQI 260 vs 90 (-170), noise 82.0 vs 60.0 (-22.0),      PASS    ____
+     (latest)                                                                                       Model Town higher in both, pH 5.90 flagged
+T13b Compare unknown location "Nowhere"           Error, nothing compared                           Error: unknown location "Nowhere".                     PASS    ____
+T13c Compare same location twice                  Error asking for two different locations          "please choose two different locations."               PASS    ____
+T13d Compare with a date that has no reading      Error                                             "no reading for "Sarai Road" on 2020-01-01."           PASS    ____
+T14  Analyze record 3 (by ID)                     Classes, explanations, flags, recommendation      AQI Poor; pH 5.90 Below range; noise High; all three   PASS    ____
+                                                                                                    flagged; recommendation to verify. (Record 1 shown
+                                                                                                    "none" flagged.) Unknown ID 99 gives an error.
+T15  Detect changes                               Model Town: AQI +78, noise +13.5, pH -1.5, new    Exactly those lines printed; Sarai Road AQI -60;       PASS    ____
+                                                  crossings; Sarai Road AQI decrease -60            "Flagged changes: 2"
+T15b Location with one reading                    "not enough history" message                      "Only one reading: not enough history to compare."     PASS    ____
+T16  Sort by AQI, descending                      260, 182, 150, 90; file unchanged unless saved    Order correct; "Data file left unchanged."             PASS    ____
+T16b Sort by AQI, then answer y to save           File rewritten in new order via temp file         File lines in new order; no .tmp/.bak left; reload OK  PASS    ____
+T17  Option 8 report                              pollution_report.txt created with correct values  Averages 170.5 / 6.88 / 66.4 match hand calculation    PASS    ____
+T18  Exit, run again, option 2                    All saved records loaded and shown                "Loaded N record(s)" and table identical               PASS    ____
+T19a Data file with 6 bad lines (garbage, duplicate ID, bad date, pH 15, noise -3, 7 fields)
+                                                  Bad lines skipped and reported; file untouched    "6 malformed line(s) were skipped (line numbers: 2 4   PASS    ____
+                                                                                                    5 6 7 8)"; file still 10 lines
+T19b Add a record when the file has bad lines     Append only; old lines preserved                  New line added at the end; all old lines still there   PASS    ____
+T19c Data path unreadable (a folder named           Error shown; NOT treated as empty; record not   "a read error occurred"; "NOT treated as empty";       PASS    ____
+     pollution_data.txt)                           saved                                             "Record NOT saved."
+T20  Report cannot be created (a folder named     Clear error, program continues                    "Error: cannot create pollution_report.txt (Is a       PASS    ____
+     pollution_report.txt exists)                                                                    directory)."
+     NOTE: failure was simulated this way; a permission failure on Windows was not tested.
+T21  Menu entry 13 and entry abc                  Error message, menu shown again, no crash         "Invalid option..." both times                         PASS    ____
+T22  Option 11                                    Closing message, exit code 0                      Closing message shown, exit code 0                     PASS    ____
+
+EXTRA TESTS
+E01  Location typed with 200 characters           "too long" error, asks again                      "input is too long (maximum 127 characters)"           PASS    ____
+E02  Input ends (Ctrl+Z / Ctrl+D) mid-entry       Safe exit, no infinite loop                       "Input ended unexpectedly. Exiting safely."            PASS    ____
+E03  Options 3-9 with no data                     Friendly "no records" messages, no divide by 0    Messages shown; empty-data report written with zeros   PASS    ____
+E04  Empty input at the menu                      "cannot be empty", asks again                     Message shown                                          PASS    ____
+E05  Sanitizer build (ASan + UBSan), full session No errors or leaks                                0 lines of sanitizer output                            PASS    n/a
+
+NOT TESTED
+  - Windows execution, VS Code terminal behaviour.
+  - Reaching the 5000-record capacity limit (logic reviewed only).
+  - Out-of-memory handling (logic reviewed only).
+  - Permission-denied (read-only file) on Windows.

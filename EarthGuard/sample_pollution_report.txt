@@ -1,0 +1,56 @@
+==============================================================
+ EARTHGUARD - POLLUTION PATTERN DETECTOR : POLLUTION REPORT
+==============================================================
+Generated on : 2026-10-26 04:42:20
+Data source  : pollution_data.txt (values entered manually by the user)
+
+1. OVERALL SUMMARY
+  Total records     : 4
+  Unique locations  : 2
+  Average AQI       : 170.5
+  Average pH        : 6.88
+  Average noise     : 66.4 dB
+  Highest AQI       : 260
+  Highest noise     : 82.0 dB
+  Lowest pH         : 5.90
+  Highest pH        : 7.40
+
+2. RECORDS FLAGGED BY RULE
+  AQI above 200                 : 1
+  pH outside 6.5-8.5            : 1
+  Noise above 70 dB             : 1
+  Records with at least one flag: 1
+
+3. LOCATION-WISE SUMMARY
+  Model Town Ludhiana      readings=2   avgAQI=221.0  maxAQI=260  avgpH=6.65  avgdB=75.2   flagged=1
+  Sarai Road               readings=2   avgAQI=120.0  maxAQI=150  avgpH=7.10  avgdB=57.5   flagged=0
+
+4. UNUSUAL CHANGES (rules: AQI >= 50, noise >= 10 dB, pH >= 1.0)
+
+  Location: Model Town Ludhiana (2 readings)
+    2026-01-15 (record 1) -> 2026-02-15 (record 3)
+      AQI increase: old 182, new 260, difference +78 (+42.9%)
+      Noise change: old 68.5 dB, new 82.0 dB, difference +13.5 dB
+      pH change: old 7.40, new 5.90, difference -1.50
+      Newly crossed rule(s): AQI above 200, pH outside 6.5-8.5, noise above 70 dB
+
+  Location: Sarai Road (2 readings)
+    2024-02-29 (record 2) -> 2024-06-01 (record 4)
+      AQI decrease: old 150, new 90, difference -60 (-40.0%)
+
+  Flagged changes: 2
+
+5. RECOMMENDATIONS
+  - Verify flagged readings with calibrated instruments.
+  - Compare with the official standard that applies to your region.
+  - Keep recording readings regularly so trends can be reviewed.
+
+6. LIMITATIONS
+  - AQI categories are an illustrative project scale, not the official AQI.
+  - pH is only one water-quality indicator; it cannot prove water is safe.
+  - Noise impact depends on duration, environment and the applicable standard.
+  - Averages across places and dates can hide local conditions.
+  - Change flags are review rules, not confirmed pollution events.
+
+DISCLAIMER: EarthGuard analyses data entered by the user. It does not
+measure pollution and is not a certified monitoring instrument.
